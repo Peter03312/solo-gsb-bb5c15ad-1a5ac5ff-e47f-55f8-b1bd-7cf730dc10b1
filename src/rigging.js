@@ -72,11 +72,27 @@ function momentShare(weight, cogX, leftX, rightX) {
   };
 }
 
-/** 分数转 JSON：num/den 为精确分子分母（字符串，避免大数精度丢失），kg 为保留 2 位小数的数值 */
+/** 向下取整除法（b > 0）：BigInt 整除向零取整，负被除数且有余时商需再减 1 */
+function floorDivBig(a, b) {
+  const q = a / b;
+  return a % b !== 0n && a < 0n ? q - 1n : q;
+}
+
+/**
+ * 分数 → 保留 2 位小数的数值：round(n/d × 100) / 100，全程 BigInt 精确舍入
+ * （四舍五入、半数进位，与 Math.round 一致：round(x) = floor(x + 1/2)）。
+ * 多件分数分担叠加时分子 / 分母可达数百位（如 140 个质数厘米间距的 1/p 相加），
+ * 先转浮点会得到 Infinity / Infinity = NaN，故绝不把分子分母转成 Number 再相除；
+ * 舍入后的商仅为「载荷 × 100」量级，远在安全整数范围内，转 Number 无精度问题。
+ */
+function roundFracTo2(f) {
+  const q = floorDivBig(200n * f.n + f.d, 2n * f.d);
+  return Number(q) / 100;
+}
+
+/** 分数转 JSON：num/den 为精确分子分母（字符串，避免大数精度丢失），kg 为分数精确舍入的 2 位小数数值 */
 function fracToJson(f) {
-  const num = Number(f.n);
-  const den = Number(f.d);
-  return { num: f.n.toString(), den: f.d.toString(), kg: Math.round((num / den) * 100) / 100 };
+  return { num: f.n.toString(), den: f.d.toString(), kg: roundFracTo2(f) };
 }
 
 /**

@@ -2406,11 +2406,13 @@ function bindSightlineForms() {
 
 /** 载荷显示：整数直接显示，否则保留 2 位小数并附精确分数（服务端按分数精确累计） */
 function fmtLoad(f) {
-  const num = Number(f.num);
-  const den = Number(f.den);
-  if (den === 1) return String(num);
-  const dec = (num / den).toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
-  return (num * 100) % den === 0 ? dec : `${dec}…（=${f.num}/${f.den}）`;
+  // num/den 可能长达数百位（多件质数间距分担叠加），一律按 BigInt 处理，
+  // 两位小数直接取服务端分数精确舍入的 kg，不把巨大分子 / 分母转浮点再相除
+  const num = BigInt(f.num);
+  const den = BigInt(f.den);
+  if (den === 1n) return num.toString();
+  const dec = f.kg.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  return (num * 100n) % den === 0n ? dec : `${dec}…（=${f.num}/${f.den}）`;
 }
 
 function rigPointName(id) {
