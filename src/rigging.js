@@ -17,6 +17,11 @@
  * （一件在 t 秒结束、另一件在 t 秒开始，二者在 t 秒不叠加）。逐段扫描得到
  * 各吊点的分段恒定载荷，输出峰值载荷与超额区间（载荷 > 额定载荷）；
  * 首尾相接的连续超额段合并为一条超额区间，并给出区间内的峰值与峰值超额量。
+ *
+ * JSON 输出：每个载荷以 { num, den, kg } 给出——num/den 为精确分子分母字符串，
+ * kg 为保留 2 位小数的数值。kg 同样由分数经 BigInt 舍入得到（见 fracToKg2），
+ * 不把巨大分子分母转成浮点数再相除，因此多件分数分担叠加（分母达数百位）时
+ * kg 仍为有限数值，页面不会显示 NaN。
  */
 
 /** 最大公约数（BigInt，非负） */
@@ -72,11 +77,28 @@ function momentShare(weight, cogX, leftX, rightX) {
   };
 }
 
+/** 向下取整除法（b > 0）：BigInt 的 / 向零取整，负被除数需再向下调整 */
+function floorDiv(a, b) {
+  const q = a / b;
+  return a % b !== 0n && a < 0n ? q - 1n : q;
+}
+
+/**
+ * 分数转保留 2 位小数的千克数值：round(n/d × 100) / 100。
+ * 全程 BigInt：round(x) = floor(x + 1/2)，即 floor((2·n·100 + d) / (2·d))，
+ * 不把可能巨大的分子 / 分母先转成浮点数再相除——多件分数分担叠加后分子分母
+ * 可远超浮点范围（如上百个不同质数厘米间距的吊挂件同时生效，分母达数百位），
+ * Number() 会得到 Infinity，Infinity / Infinity = NaN，kg 字段随之丢失
+ * （JSON 中变为 null），页面显示 NaN。
+ */
+function fracToKg2(f) {
+  const rounded = floorDiv(2n * f.n * 100n + f.d, 2n * f.d);
+  return Number(rounded) / 100;
+}
+
 /** 分数转 JSON：num/den 为精确分子分母（字符串，避免大数精度丢失），kg 为保留 2 位小数的数值 */
 function fracToJson(f) {
-  const num = Number(f.n);
-  const den = Number(f.d);
-  return { num: f.n.toString(), den: f.d.toString(), kg: Math.round((num / den) * 100) / 100 };
+  return { num: f.n.toString(), den: f.d.toString(), kg: fracToKg2(f) };
 }
 
 /**

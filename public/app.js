@@ -2404,13 +2404,19 @@ function bindSightlineForms() {
 
 /* ---------- 吊挂布景载荷核算 ---------- */
 
-/** 载荷显示：整数直接显示，否则保留 2 位小数并附精确分数（服务端按分数精确累计） */
+/**
+ * 载荷显示：整数直接显示，否则保留 2 位小数并附精确分数（服务端按分数精确累计）。
+ * 多件分数分担叠加后分子 / 分母可能远超浮点范围（如上百个不同质数厘米间距的
+ * 吊挂件同时生效，分母达数百位），这里一律用 BigInt 解析判定，2 位小数值取
+ * 服务端的 kg 字段（服务端同样按 BigInt 从精确分数舍入，始终为有限数值），
+ * 不把巨大分子分母转成浮点数再相除（Infinity / Infinity = NaN）。
+ */
 function fmtLoad(f) {
-  const num = Number(f.num);
-  const den = Number(f.den);
-  if (den === 1) return String(num);
-  const dec = (num / den).toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
-  return (num * 100) % den === 0 ? dec : `${dec}…（=${f.num}/${f.den}）`;
+  const num = BigInt(f.num);
+  const den = BigInt(f.den);
+  if (den === 1n) return num.toString();
+  const dec = f.kg.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  return (num * 100n) % den === 0n ? dec : `${dec}…（=${f.num}/${f.den}）`;
 }
 
 function rigPointName(id) {
